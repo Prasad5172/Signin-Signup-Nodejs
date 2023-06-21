@@ -7,29 +7,77 @@ const port = process.env.PORT || 8000
 const hbs = require("hbs")
 const Register = require("./models/login")
 const bcrypt = require("bcryptjs")
-
+const cookieParser = require("cookie-parser");
+const auth = require("./middleware/auth")
 
 const staticPath = path.join(__dirname,'../public')
 const templaPath = path.join(__dirname,"../templates/views")
 const partialPath = path.join(__dirname,"../templates/partials")
 
+
 app.use(express.static(staticPath))
+app.use(cookieParser())
+
+
+hbs.registerPartials(partialPath)
+
+
 app.set("view engine","hbs")
 app.set("views",templaPath)
-hbs.registerPartials(partialPath)
+
 
 app.use(express.json())
 app.use(express.urlencoded({extended : false}))
 
-app.get("/" ,(req,res)=> {
+
+app.get("/"  ,(req,res)=> {
     res.render("login")
 })
+app.get("/screte" ,auth , (req,res)=> {
+    // console.log(req.cookies.jwt)
+    res.render("screte")
+})
+
 
 app.get("/login" ,(req,res)=> {
     res.render("login")
 })
 
+app.get("/logout",auth,async (req,res) => {
+    try {
+        
+        // logout of single devise 
+        req.user.tokens = req.user.tokens.filter(ele => ele.token != req.token);
 
+
+        res.clearCookie("jwt")
+
+        await req.user.save();
+
+
+        res.render("login") 
+    } catch (error) {
+        res.status(400).send(error+ "this is error");
+    }
+})
+
+app.get("/LogoutOfAll",auth,async (req,res) => {
+    try {
+        
+        // logout of all existing accouts in database
+        req.user.tokens = [];
+
+
+        res.clearCookie("jwt")
+
+        await req.user.save();
+
+
+        res.render("login") 
+    } catch (error) {
+        res.status(400).send(error+ "this is error");
+    }
+})
 
 // create new user in database
 app.post("/register" , async (req,res)=> {
@@ -56,6 +104,17 @@ app.post("/register" , async (req,res)=> {
             // // middleware
             const token = await registerEmployee.generateAuthToken();
 
+
+            // The res.cookie()  function is used to set a cookie name to value.
+            // The value parameter is string or object converted to JSON.
+
+             res.cookie("jwt",token,{
+                expires : new Date(Date.now()+3000),
+                httpOnly : true
+            })
+
+            
+
             const user = await registerEmployee.save();
             res.status(200).render("index")
         }else{
@@ -76,9 +135,17 @@ app.post("/login", async (req,res) => {
         const user = await Register.findOne({"email" : email});
         const isMatch = await bcrypt.compare(password,user.password)
         
-        const token = await user.generateAuthToken();
-        
+       
+
+        // console.log(req.cookies.jwt)
+
         if(isMatch){
+            const token = await user.generateAuthToken();
+
+            res.cookie("jwt",token,{
+                // expires : new Date(Date.now()+3000),
+                httpOnly : true
+            })
             return res.render("index")
         }
         res.send("password did not match with the email")

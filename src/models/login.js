@@ -65,7 +65,7 @@ employeeSchema.pre("save",async function (next){
 
 employeeSchema.methods.generateAuthToken = async function() {
     try {
-        const newToken = await jwt.sign({_id : this._id.toString()},process.env.SCRETE_KEY)
+        const newToken = await jwt.sign({_id : this._id.toString()}, process.env.SECRET_KEY)
         
         this.tokens = this.tokens.concat({token: newToken})
         await this.save();
